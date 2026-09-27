@@ -23,10 +23,11 @@ public final class WebSocketVoiceStream: VoiceStreaming, @unchecked Sendable {
     public func connect(sessionID: String) -> AsyncThrowingStream<VoiceEvent, any Error> {
         let task = session.webSocketTask(
             with: Self.voiceURL(baseURL: baseURL, sessionID: sessionID))
-        lock.withLock {
-            self.task?.cancel(with: .goingAway, reason: nil)
-            self.task = task
+        let previous = lock.withLock { () -> URLSessionWebSocketTask? in
+            defer { self.task = task }
+            return self.task
         }
+        previous?.cancel(with: .goingAway, reason: nil)  // outside the lock: may do I/O
         task.resume()
 
         return AsyncThrowingStream { continuation in
@@ -44,6 +45,9 @@ public final class WebSocketVoiceStream: VoiceStreaming, @unchecked Sendable {
                 }
                 self.clear(task)
             }
+            // Also runs after the receiver finishes the stream itself; cancelling an
+            // already-closed task is a harmless no-op. It matters when the consumer stops
+            // iterating early.
             continuation.onTermination = { _ in
                 receiver.cancel()
                 task.cancel(with: .goingAway, reason: nil)
@@ -52,7 +56,9 @@ public final class WebSocketVoiceStream: VoiceStreaming, @unchecked Sendable {
     }
 
     public func send(pcm: Data) async throws {
-        guard let task = lock.withLock({ self.task }) else { return }
+        guard let task = lock.withLock({ self.task }) else {
+            throw VoiceStreamError.notConnected
+        }
         try await task.send(.data(pcm))
     }
 

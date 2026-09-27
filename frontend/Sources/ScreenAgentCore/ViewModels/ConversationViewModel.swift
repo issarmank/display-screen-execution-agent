@@ -143,6 +143,7 @@ public final class ConversationViewModel {
         case .turn(let turn):
             append(turn)
             partialText = ""
+            bannerError = nil  // like a successful send, clears an earlier failure
         case .error(let error) where error.fatal:
             showVoiceError("Voice transcription failed: \(error.message)")
         case .error, .done, .unknown:
@@ -204,7 +205,10 @@ public final class ConversationViewModel {
     private func cancelVoice() {
         audio.stop()
         voice.cancel()
-        if voiceTask == nil { voiceState = .idle }  // still in the permission/session step
+        // Still in the permission/session step: nothing to wait for. Otherwise wait for the
+        // socket to wind down, but leave `.connecting` right away so a `ready` that was
+        // already in flight can't start the mic after the user cancelled.
+        voiceState = voiceTask == nil ? .idle : .stopping
     }
 
     private func finishVoice() {

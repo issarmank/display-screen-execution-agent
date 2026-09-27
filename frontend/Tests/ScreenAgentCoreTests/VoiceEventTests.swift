@@ -67,14 +67,17 @@ struct WebSocketVoiceStreamTests {
         (.closed(code: 4429, reason: ""), "already running"),
         (.closed(code: 1011, reason: "boom"), "code 1011): boom"),
         (.connectionFailed("refused"), "Can't reach the backend"),
+        (.notConnected, "isn't connected"),
     ])
     func errorMessages(error: VoiceStreamError, fragment: String) {
         #expect(error.errorDescription?.contains(fragment) == true)
     }
 
-    @Test func sendAndStopWithoutConnectionAreNoOps() async throws {
+    @Test func sendWithoutConnectionThrowsButStopAndCancelAreNoOps() async {
         let stream = WebSocketVoiceStream(baseURL: URL(string: "http://127.0.0.1:9")!)
-        try await stream.send(pcm: Data([1, 2]))
+        await #expect(throws: VoiceStreamError.notConnected) {
+            try await stream.send(pcm: Data([1, 2]))
+        }
         await stream.stop()
         stream.cancel()
     }
