@@ -7,3 +7,6 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 *.egg-info/
+frontend/.build/
+frontend/build/
+frontend/.swiftpm/

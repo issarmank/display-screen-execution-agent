@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "swift",
+      "request": "launch",
+      "name": "Debug ScreenAgent (text only; mic prompt needs scripts/run.sh)",
+      "cwd": "${workspaceFolder}",
+      "program": "${workspaceFolder}/.build/debug/ScreenAgent",
+      "env": { "SCREEN_AGENT_BACKEND_URL": "http://127.0.0.1:8000" },
+      "preLaunchTask": "swift: build"
+    }
+  ]
+}

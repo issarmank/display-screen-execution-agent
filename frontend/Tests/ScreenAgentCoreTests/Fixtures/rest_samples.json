@@ -1,0 +1,52 @@
+{
+  "session": {
+    "ended_at": null,
+    "id": "8a4c7a2e-1f3b-4c1e-9d0a-5b6f7e8d9c01",
+    "started_at": "2026-09-27T18:30:00Z",
+    "status": "active"
+  },
+  "session_detail": {
+    "ended_at": null,
+    "id": "8a4c7a2e-1f3b-4c1e-9d0a-5b6f7e8d9c01",
+    "started_at": "2026-09-27T18:30:00Z",
+    "status": "active",
+    "turns": [
+      {
+        "created_at": "2026-09-27T18:30:00Z",
+        "ended_at": "2026-09-27T18:30:00Z",
+        "id": "b7c8d9e0-f1a2-4b3c-8d4e-5f6a7b8c9d0e",
+        "role": "user",
+        "session_id": "8a4c7a2e-1f3b-4c1e-9d0a-5b6f7e8d9c01",
+        "source": "text",
+        "started_at": "2026-09-27T18:30:00Z",
+        "text": "open safari"
+      },
+      {
+        "created_at": "2026-09-27T18:30:01.250000Z",
+        "ended_at": "2026-09-27T18:30:01.250000Z",
+        "id": "3f1e2d3c-4b5a-4968-8776-a5b4c3d2e1f0",
+        "role": "user",
+        "session_id": "8a4c7a2e-1f3b-4c1e-9d0a-5b6f7e8d9c01",
+        "source": "voice",
+        "started_at": "2026-09-27T18:30:00Z",
+        "text": "open the browser"
+      }
+    ]
+  },
+  "session_ended": {
+    "ended_at": "2026-09-27T18:30:01.250000Z",
+    "id": "8a4c7a2e-1f3b-4c1e-9d0a-5b6f7e8d9c01",
+    "started_at": "2026-09-27T18:30:00Z",
+    "status": "completed"
+  },
+  "text_turn": {
+    "created_at": "2026-09-27T18:30:00Z",
+    "ended_at": "2026-09-27T18:30:00Z",
+    "id": "b7c8d9e0-f1a2-4b3c-8d4e-5f6a7b8c9d0e",
+    "role": "user",
+    "session_id": "8a4c7a2e-1f3b-4c1e-9d0a-5b6f7e8d9c01",
+    "source": "text",
+    "started_at": "2026-09-27T18:30:00Z",
+    "text": "open safari"
+  }
+}
