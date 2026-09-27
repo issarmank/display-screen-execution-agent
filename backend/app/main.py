@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import FastAPI
 from sqlalchemy.orm import sessionmaker
 
-from app.api import sessions
+from app.api import sessions, voice
 from app.config import Settings, get_settings
 from app.db import make_engine, make_session_factory
 from app.services.session_service import SessionService
@@ -59,6 +59,7 @@ def create_app(
     app.state.transcriber_factory = transcriber_factory
     app.state.voice_registry = VoiceRegistry()
     app.include_router(sessions.router)
+    app.include_router(voice.router)
     return app
 
 

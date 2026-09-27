@@ -164,6 +164,40 @@ async def test_flush_times_out_when_server_silent() -> None:
     assert await t.flush() is False  # after stop: no-op
 
 
+async def test_flush_treats_commit_throttled_as_nothing_to_flush() -> None:
+    # Regression: stopping right after a VAD commit made Scribe reply commit_throttled,
+    # which surfaced as a client-facing error and stalled flush() for its full timeout.
+    throttled = {
+        "message_type": "commit_throttled",
+        "error": "Commit request ignored: only 0.00s of uncommitted audio.",
+    }
+
+    def script(msg: dict[str, Any], _i: int) -> list[dict[str, Any]]:
+        return [throttled] if msg.get("commit") else []
+
+    errors: list[dict[str, Any]] = []
+    async with fake_scribe(script) as (url, _log):
+        t = RealtimeTranscriber("k", base_url=url)
+        t.on_error(errors.append)
+        await t.start()
+        async with asyncio.timeout(1):  # well under the 5 s flush timeout
+            assert await t.flush(timeout=5) is True
+        await t.stop()
+    assert errors == []
+
+
+async def test_commit_throttled_outside_flush_still_reaches_error_callback() -> None:
+    errors: list[dict[str, Any]] = []
+    greeting = [{"message_type": "commit_throttled", "error": "too soon"}]
+    async with fake_scribe(lambda _m, _i: [], greeting=greeting) as (url, _log):
+        t = RealtimeTranscriber("k", base_url=url)
+        t.on_error(errors.append)
+        await t.start()
+        await wait_until(lambda: errors)
+        await t.stop()
+    assert errors[0]["message_type"] == "commit_throttled"
+
+
 @pytest.mark.parametrize("error_type", ["auth_error", "quota_exceeded", "rate_limited"])
 async def test_server_errors_reach_error_callback(error_type: str) -> None:
     errors: list[dict[str, Any]] = []

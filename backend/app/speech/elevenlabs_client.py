@@ -79,6 +79,7 @@ class RealtimeTranscriber:
         self._error_cbs: list[ErrorCallback] = []
         self._commit_seen = asyncio.Event()
         self._stopping = False
+        self._flushing = False
         self.session_started = asyncio.Event()
         self.closed = asyncio.Event()
 
@@ -140,16 +141,20 @@ class RealtimeTranscriber:
     async def flush(self, timeout: float = 2.0) -> bool:
         """Force-commit buffered audio and wait for the resulting segment.
 
-        Returns True if a committed segment arrived before the timeout.
+        Returns True if the server answered the commit before the timeout: either with a
+        committed segment, or by saying there was too little uncommitted audio to commit.
         """
         if not self.is_open or self._connection is None:
             return False
         self._commit_seen.clear()
-        await self._connection.commit()
+        self._flushing = True
         try:
+            await self._connection.commit()
             await asyncio.wait_for(self._commit_seen.wait(), timeout)
         except TimeoutError:
             return False
+        finally:
+            self._flushing = False
         return True
 
     async def stop(self) -> None:
@@ -177,6 +182,11 @@ class RealtimeTranscriber:
         # Closing the socket ourselves makes the SDK report the close handshake
         # (e.g. "no close frame received") as an error; that isn't a real failure.
         if self._stopping:
+            return
+        # Flushing right after VAD already committed leaves < 0.3 s of audio, which Scribe
+        # rejects with commit_throttled. For a flush that just means nothing was left.
+        if self._flushing and payload.get("message_type") == "commit_throttled":
+            self._commit_seen.set()
             return
         for cb in self._error_cbs:
             cb(payload)

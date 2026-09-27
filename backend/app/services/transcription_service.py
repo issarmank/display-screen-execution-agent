@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import sessionmaker
 
 from app.models import Session, SessionStatus, Turn, TurnSource, utcnow
+from app.services.session_service import SessionClosed, SessionNotFound
 from app.speech.elevenlabs_client import CommittedSegment
 
 
@@ -21,6 +22,8 @@ class TranscriptionService:
         self._clock = clock
         self._session_id: str | None = None
         self._audio_anchor: datetime | None = None
+        # Set once a segment is refused because the session was ended elsewhere.
+        self.session_closed = False
 
     @property
     def session_id(self) -> str:
@@ -46,9 +49,9 @@ class TranscriptionService:
         with self._session_factory() as db:
             session = db.get(Session, session_id)
             if session is None:
-                raise LookupError(f"Session {session_id} not found")
+                raise SessionNotFound(session_id)
             if session.status != SessionStatus.ACTIVE:
-                raise RuntimeError(f"Session {session_id} is not active")
+                raise SessionClosed(session_id)
         self._session_id = session_id
         self._audio_anchor = self._clock()
 
@@ -57,12 +60,19 @@ class TranscriptionService:
         self._audio_anchor = at or self._clock()
 
     def record_committed(self, segment: CommittedSegment) -> Turn | None:
+        """Persist a committed segment; returns None for blank text or an ended session."""
         text = segment.text.strip()
         if not text:
             return None
+        session_id = self.session_id
         with self._session_factory() as db:
+            # The conversation may have been ended (REST /end) while audio was streaming.
+            session = db.get(Session, session_id)
+            if session is None or session.status != SessionStatus.ACTIVE:
+                self.session_closed = True
+                return None
             turn = Turn(
-                session_id=self.session_id,
+                session_id=session_id,
                 role="user",
                 source=TurnSource.VOICE,
                 text=text,

@@ -119,3 +119,21 @@ def test_attach_after_start_raises(session_factory: sessionmaker[Any]) -> None:
     session = svc.start_session()
     with pytest.raises(RuntimeError, match="already"):
         svc.attach_session(session.id)
+
+
+def test_record_after_session_ended_elsewhere_is_refused(
+    session_factory: sessionmaker[Any], clock: FakeClock
+) -> None:
+    svc = TranscriptionService(session_factory, clock=clock)
+    session = svc.start_session()
+    assert svc.record_committed(CommittedSegment("before")) is not None
+    with session_factory() as db:
+        stored = db.get(Session, session.id)
+        assert stored is not None
+        stored.status = SessionStatus.COMPLETED
+        db.commit()
+
+    assert not svc.session_closed
+    assert svc.record_committed(CommittedSegment("after")) is None
+    assert svc.session_closed
+    assert svc.turn_count() == 1
