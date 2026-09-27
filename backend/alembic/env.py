@@ -36,8 +36,9 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     url = _database_url()
     _ensure_sqlite_dir(url)
-    engine = make_engine(url)
-    engine.pool = pool.NullPool(engine.pool._creator)
+    # Pass NullPool at creation: swapping engine.pool afterwards drops the pool's event
+    # listeners (dialect init and the foreign-keys PRAGMA), which breaks SQLite reflection.
+    engine = make_engine(url, poolclass=pool.NullPool)
     with engine.connect() as connection:
         context.configure(
             connection=connection, target_metadata=target_metadata, render_as_batch=True

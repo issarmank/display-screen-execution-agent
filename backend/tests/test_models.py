@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from app.models import Session, SessionStatus, Turn
+from app.models import Session, SessionStatus, Turn, TurnSource
 
 
 def test_session_crud(session_factory: sessionmaker[Any]) -> None:
@@ -77,3 +77,15 @@ def test_turn_text_is_required(session_factory: sessionmaker[Any]) -> None:
         db.add(Turn(session_id=s.id))
         with pytest.raises(IntegrityError):
             db.commit()
+
+
+def test_turn_source_defaults_to_voice_and_accepts_text(
+    session_factory: sessionmaker[Any],
+) -> None:
+    with session_factory() as db:
+        s = Session(turns=[Turn(text="spoken"), Turn(text="typed", source=TurnSource.TEXT)])
+        db.add(s)
+        db.commit()
+    with session_factory() as db:
+        by_text = {t.text: t.source for t in db.scalars(select(Turn)).all()}
+    assert by_text == {"spoken": "voice", "typed": "text"}

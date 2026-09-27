@@ -239,3 +239,56 @@ async def test_second_cancellation_during_cleanup_still_closes_session(
 
     session, _ = only_session(session_factory)
     assert session.status == SessionStatus.COMPLETED and session.ended_at is not None
+
+
+async def test_attached_session_stays_active_when_end_session_on_exit_false(
+    session_factory: sessionmaker[Any], clock: FakeClock
+) -> None:
+    with session_factory() as db:
+        existing = Session(status=SessionStatus.ACTIVE)
+        db.add(existing)
+        db.commit()
+    service = TranscriptionService(session_factory, clock=clock)
+    service.attach_session(existing.id)
+
+    async with fake_scribe(lambda _m, i: committed("hello there") if i == 0 else []) as (
+        url,
+        _log,
+    ):
+        result = await run_live_session(
+            RealtimeTranscriber("k", base_url=url),
+            service,
+            chunks(2, gap=0.05),
+            flush_timeout=0.1,
+            start_new_session=False,
+            end_session_on_exit=False,
+        )
+
+    assert result.session_id == existing.id and result.turn_count == 1
+    session, turns = only_session(session_factory)  # no extra session was created
+    assert session.status == SessionStatus.ACTIVE and session.ended_at is None
+    assert [(t.source, t.text) for t in turns] == [("voice", "hello there")]
+
+
+async def test_attached_session_stays_active_after_fatal_error(
+    session_factory: sessionmaker[Any], clock: FakeClock
+) -> None:
+    with session_factory() as db:
+        existing = Session(status=SessionStatus.ACTIVE)
+        db.add(existing)
+        db.commit()
+    service = TranscriptionService(session_factory, clock=clock)
+    service.attach_session(existing.id)
+
+    greeting = [{"message_type": "auth_error", "error": "invalid api key"}]
+    async with fake_scribe(lambda _m, _i: [], greeting=greeting) as (url, _log):
+        with pytest.raises(FatalTranscriptionError):
+            await run_live_session(
+                RealtimeTranscriber("bad", base_url=url),
+                service,
+                chunks(20, gap=0.02),
+                start_new_session=False,
+                end_session_on_exit=False,
+            )
+    session, _ = only_session(session_factory)
+    assert session.status == SessionStatus.ACTIVE

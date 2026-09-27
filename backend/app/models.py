@@ -20,6 +20,11 @@ class SessionStatus:
     COMPLETED = "completed"
 
 
+class TurnSource:
+    TEXT = "text"
+    VOICE = "voice"
+
+
 class Session(Base):
     __tablename__ = "sessions"
 
@@ -41,6 +46,9 @@ class Turn(Base):
         String(36), ForeignKey("sessions.id", ondelete="CASCADE"), index=True
     )
     role: Mapped[str] = mapped_column(String(16), default="user")
+    source: Mapped[str] = mapped_column(
+        String(16), default=TurnSource.VOICE, server_default=TurnSource.VOICE
+    )
     text: Mapped[str] = mapped_column(Text)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

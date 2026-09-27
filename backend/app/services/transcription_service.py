@@ -5,7 +5,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import sessionmaker
 
-from app.models import Session, SessionStatus, Turn, utcnow
+from app.models import Session, SessionStatus, Turn, TurnSource, utcnow
 from app.speech.elevenlabs_client import CommittedSegment
 
 
@@ -39,6 +39,19 @@ class TranscriptionService:
         self._audio_anchor = session.started_at
         return session
 
+    def attach_session(self, session_id: str) -> None:
+        """Record turns into an existing active session instead of creating one."""
+        if self._session_id is not None:
+            raise RuntimeError("Session already started")
+        with self._session_factory() as db:
+            session = db.get(Session, session_id)
+            if session is None:
+                raise LookupError(f"Session {session_id} not found")
+            if session.status != SessionStatus.ACTIVE:
+                raise RuntimeError(f"Session {session_id} is not active")
+        self._session_id = session_id
+        self._audio_anchor = self._clock()
+
     def mark_audio_started(self, at: datetime | None = None) -> None:
         """Anchor ElevenLabs' stream-relative word offsets to wall-clock time."""
         self._audio_anchor = at or self._clock()
@@ -51,6 +64,7 @@ class TranscriptionService:
             turn = Turn(
                 session_id=self.session_id,
                 role="user",
+                source=TurnSource.VOICE,
                 text=text,
                 started_at=self._offset(segment.start_s),
                 ended_at=self._offset(segment.end_s),
@@ -59,6 +73,13 @@ class TranscriptionService:
             db.add(turn)
             db.commit()
         return turn
+
+    def turn_count(self) -> int:
+        with self._session_factory() as db:
+            count = db.scalar(
+                select(func.count()).select_from(Turn).where(Turn.session_id == self.session_id)
+            )
+        return int(count or 0)
 
     def end_session(self) -> int:
         """Mark the session completed and return its turn count."""

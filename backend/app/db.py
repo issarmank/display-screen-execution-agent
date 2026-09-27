@@ -8,8 +8,8 @@ class Base(DeclarativeBase):
     pass
 
 
-def make_engine(database_url: str) -> Engine:
-    engine = create_engine(database_url)
+def make_engine(database_url: str, **engine_kwargs: Any) -> Engine:
+    engine = create_engine(database_url, **engine_kwargs)
     if engine.dialect.name == "sqlite":
         # SQLite leaves foreign key enforcement off unless asked per connection.
         @event.listens_for(engine, "connect")

@@ -76,3 +76,46 @@ def test_turn_count_is_scoped_to_session(
     svc.start_session()
     svc.record_committed(CommittedSegment("mine"))
     assert svc.end_session() == 1
+
+
+def test_attach_session_records_voice_turns_into_existing_session(
+    session_factory: sessionmaker[Any], clock: FakeClock
+) -> None:
+    with session_factory() as db:
+        existing = Session(status=SessionStatus.ACTIVE)
+        db.add(existing)
+        db.commit()
+
+    svc = TranscriptionService(session_factory, clock=clock)
+    svc.attach_session(existing.id)
+    assert svc.session_id == existing.id
+    turn = svc.record_committed(CommittedSegment("spoken", start_s=0.0, end_s=0.5))
+    assert turn is not None and turn.source == "voice" and turn.started_at is not None
+    assert svc.turn_count() == 1
+    with session_factory() as db:
+        assert db.scalars(select(Session)).all()[0].status == SessionStatus.ACTIVE
+
+
+def test_attach_unknown_session_raises(session_factory: sessionmaker[Any]) -> None:
+    svc = TranscriptionService(session_factory)
+    with pytest.raises(LookupError):
+        svc.attach_session("nope")
+    with pytest.raises(RuntimeError, match="start_session"):
+        _ = svc.session_id
+
+
+def test_attach_closed_session_raises(session_factory: sessionmaker[Any]) -> None:
+    with session_factory() as db:
+        done = Session(status=SessionStatus.COMPLETED)
+        db.add(done)
+        db.commit()
+    svc = TranscriptionService(session_factory)
+    with pytest.raises(RuntimeError, match="not active"):
+        svc.attach_session(done.id)
+
+
+def test_attach_after_start_raises(session_factory: sessionmaker[Any]) -> None:
+    svc = TranscriptionService(session_factory)
+    session = svc.start_session()
+    with pytest.raises(RuntimeError, match="already"):
+        svc.attach_session(session.id)

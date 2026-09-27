@@ -37,10 +37,16 @@ async def run_live_session(
     on_turn: Callable[[CommittedSegment], None] = lambda _s: None,
     on_error: Callable[[dict[str, Any]], None] = lambda _e: None,
     flush_timeout: float = 2.0,
+    start_new_session: bool = True,
+    end_session_on_exit: bool = True,
 ) -> LiveSessionResult:
     """Stream ``audio`` until it ends (or the task is cancelled), persisting committed turns.
 
-    The session row is always closed out, even on cancellation or error.
+    By default a fresh session row is created and always closed out, even on
+    cancellation or error. Callers that manage the session themselves (the voice
+    WebSocket attaches to an existing conversation) pass ``start_new_session=False``
+    after ``service.attach_session()`` and ``end_session_on_exit=False`` so the
+    conversation outlives this one voice stream.
     """
     errors: list[dict[str, Any]] = []
     fatal = asyncio.Event()
@@ -59,7 +65,8 @@ async def run_live_session(
     transcriber.on_committed(handle_committed)
     transcriber.on_error(handle_error)
 
-    service.start_session()
+    if start_new_session:
+        service.start_session()
     try:
         await transcriber.start()
         service.mark_audio_started()
@@ -76,5 +83,5 @@ async def run_live_session(
         try:
             await asyncio.shield(transcriber.stop())
         finally:
-            turn_count = service.end_session()
+            turn_count = service.end_session() if end_session_on_exit else service.turn_count()
     return LiveSessionResult(session_id=service.session_id, turn_count=turn_count, errors=errors)
