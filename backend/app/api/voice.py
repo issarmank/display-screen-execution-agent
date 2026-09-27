@@ -184,6 +184,7 @@ class _VoiceStream:
         code = str(payload.get("message_type") or "upstream_error")
         message = str(payload.get("error") or payload.get("message") or code)
         fatal = code in FATAL_ERRORS
+        logger.warning("Transcriber error on session %s: %s: %s", self.session_id, code, message)
         self.emit(error_event(code, message, fatal=fatal))
         if fatal:
             self.end_audio()  # don't wait for the next client chunk to notice
