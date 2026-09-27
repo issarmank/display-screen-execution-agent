@@ -16,6 +16,10 @@ public enum AppEnvironment {
     }
 
     public static func makeViewModel() -> ConversationViewModel {
-        ConversationViewModel(api: HTTPSessionAPI(baseURL: backendURL()))
+        let url = backendURL()
+        return ConversationViewModel(
+            api: HTTPSessionAPI(baseURL: url),
+            voice: WebSocketVoiceStream(baseURL: url),
+            audio: MicrophoneCapture())
     }
 }

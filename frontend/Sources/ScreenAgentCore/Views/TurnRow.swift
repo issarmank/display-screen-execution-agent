@@ -19,3 +19,24 @@ struct TurnRow: View {
         .padding(.vertical, 4)
     }
 }
+
+/// The live transcript while the user is still speaking.
+struct PartialRow: View {
+    static let id = "partial-transcript"
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: "waveform")
+                .foregroundStyle(.secondary)
+                .frame(width: 18)
+                .symbolEffect(.variableColor.iterative)
+            Text(text)
+                .italic()
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.vertical, 4)
+        .accessibilityLabel("Listening: \(text)")
+    }
+}

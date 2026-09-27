@@ -10,8 +10,12 @@ import Testing
 struct ConversationViewModelTextTests {
     let api = MockSessionAPI()
 
+    func makeVM() -> ConversationViewModel {
+        ConversationViewModel(api: api, voice: MockVoiceStream(), audio: MockAudioCapture())
+    }
+
     @Test func onAppearCreatesSessionOnce() async {
-        let vm = ConversationViewModel(api: api)
+        let vm = makeVM()
         await vm.onAppear()
         await vm.onAppear()
         #expect(vm.sessionID == "s1")
@@ -20,7 +24,7 @@ struct ConversationViewModelTextTests {
     }
 
     @Test func typeAndSendAppendsRowAndClearsDraft() async {
-        let vm = ConversationViewModel(api: api)
+        let vm = makeVM()
         await vm.onAppear()
         vm.draft = "  open safari \n"
         #expect(vm.canSend)
@@ -34,7 +38,7 @@ struct ConversationViewModelTextTests {
 
     @Test(arguments: ["", "   ", "\n\t"])
     func emptyDraftIsBlocked(_ draft: String) async {
-        let vm = ConversationViewModel(api: api)
+        let vm = makeVM()
         await vm.onAppear()
         vm.draft = draft
         #expect(!vm.canSend)
@@ -44,7 +48,7 @@ struct ConversationViewModelTextTests {
     }
 
     @Test func apiFailureKeepsDraftAndShowsBanner() async {
-        let vm = ConversationViewModel(api: api)
+        let vm = makeVM()
         await vm.onAppear()
         await api.setAddTextError(.transport("Could not connect to the server."))
         vm.draft = "open safari"
@@ -63,7 +67,7 @@ struct ConversationViewModelTextTests {
 
     @Test func backendDownAtLaunchRecoversOnSend() async {
         await api.setCreateResult(.failure(.transport("refused")))
-        let vm = ConversationViewModel(api: api)
+        let vm = makeVM()
         await vm.onAppear()
         #expect(vm.sessionID == nil)
         #expect(vm.bannerError != nil)
@@ -77,7 +81,7 @@ struct ConversationViewModelTextTests {
     }
 
     @Test func closedSessionErrorIsShown() async {
-        let vm = ConversationViewModel(api: api)
+        let vm = makeVM()
         await vm.onAppear()
         await api.setAddTextError(.http(status: 409, detail: "Session s1 is not active"))
         vm.draft = "late"
@@ -86,7 +90,7 @@ struct ConversationViewModelTextTests {
     }
 
     @Test func endSessionIsCalledOnceAndIsBestEffort() async {
-        let vm = ConversationViewModel(api: api)
+        let vm = makeVM()
         await vm.endSession()  // no session yet: nothing to end
         #expect(await api.calls.isEmpty)
         await vm.onAppear()
@@ -97,14 +101,14 @@ struct ConversationViewModelTextTests {
 
     @Test func dismissBannerClearsIt() async {
         await api.setCreateResult(.failure(.transport("refused")))
-        let vm = ConversationViewModel(api: api)
+        let vm = makeVM()
         await vm.onAppear()
         vm.dismissBanner()
         #expect(vm.bannerError == nil)
     }
 
     @Test func duplicateTurnIDsAreNotAppendedTwice() {
-        let vm = ConversationViewModel(api: api)
+        let vm = makeVM()
         let turn = Fixtures.turn(id: "t1", sessionID: "s1", source: .voice, text: "hi")
         vm.append(turn)
         vm.append(turn)

@@ -17,16 +17,22 @@ public struct ConversationView: View {
                     ForEach(model.turns) { turn in
                         TurnRow(turn: turn).id(turn.id)
                     }
+                    if !model.partialText.isEmpty {
+                        PartialRow(text: model.partialText).id(PartialRow.id)
+                    }
                 }
                 .overlay {
-                    if model.turns.isEmpty {
+                    if model.turns.isEmpty && model.partialText.isEmpty {
                         ContentUnavailableView(
                             "No messages yet", systemImage: "text.bubble",
-                            description: Text("Type a message below."))
+                            description: Text("Type a message or click the mic to speak."))
                     }
                 }
                 .onChange(of: model.turns.last?.id) { _, id in
                     if let id { withAnimation { proxy.scrollTo(id, anchor: .bottom) } }
+                }
+                .onChange(of: model.partialText.isEmpty) { _, isEmpty in
+                    if !isEmpty { proxy.scrollTo(PartialRow.id, anchor: .bottom) }
                 }
             }
             Divider()
