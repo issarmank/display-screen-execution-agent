@@ -16,6 +16,8 @@ class Settings(BaseSettings):
 
     eleven_labs_api_key: str = ""
     database_url: str = DEFAULT_DATABASE_URL
+    host: str = "127.0.0.1"
+    port: int = 8000
 
 
 @lru_cache
